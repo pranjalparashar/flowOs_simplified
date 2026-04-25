@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openenv-developer_control_room"
+version = "0.1.0"
+description = "FlowOS end-to-end benchmark for production AI agents"
+requires-python = ">=3.10"
+dependencies = [
+    "openenv-core[core]>=0.2.2",
+    "openai>=1.52.0",
+    "requests>=2.32.0",
+    "python-dotenv>=1.0.1",
+    "duckdb>=1.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+]
+train = [
+    "accelerate>=0.34.0",
+    "bitsandbytes>=0.43.0",
+    "datasets>=2.21.0",
+    "peft>=0.13.0",
+    "transformers>=4.45.0",
+    "trl>=0.11.0",
+]
+unsloth = [
+    "unsloth",
+]
+
+[project.scripts]
+server = "developer_control_room.server.app:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["developer_control_room", "developer_control_room.server"]
+package-dir = { "developer_control_room" = ".", "developer_control_room.server" = "server" }

@@ -1,0 +1,17 @@
+.venv/
+.uv-cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.DS_Store
+*.egg-info/
+outputs/
+artifacts/
+.github/
+artifacts/
+outputs/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store

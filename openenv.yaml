@@ -1,0 +1,71 @@
+spec_version: 1
+name: developer_control_room
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
+description: >
+  FlowOS is an end-to-end benchmark for AI agents operating in a realistic
+  production engineering workspace. Agents repair broken workflows, review
+  unsafe LLM-generated patches, and synthesize reporting or data-product
+  assets from natural-language requests while respecting schema,
+  governance, and downstream contracts.
+authors:
+  - name: Pranjal Parashar
+license: MIT
+tags:
+  - openenv
+  - developer-tools
+  - data-platform
+  - pipeline-ops
+  - llm-evaluation
+  - workflow-generation
+tasks:
+  - id: repair_data_transform
+    name: "Task 1: Repair Data Transform"
+    difficulty: easy
+    max_steps: 8
+    score_range: [0.0, 1.0]
+    description: >
+      Repair a broken transform or dependency reference while keeping
+      downstream warehouse contracts stable.
+  - id: repair_pipeline_execution
+    name: "Task 2: Repair Pipeline Execution"
+    difficulty: easy
+    max_steps: 8
+    score_range: [0.0, 1.0]
+    description: >
+      Recover ingestion or orchestration failures caused by storage,
+      runner, or deploy-configuration drift.
+  - id: review_ai_patch_safety
+    name: "Task 3: Review AI Patch Safety"
+    difficulty: medium
+    max_steps: 8
+    score_range: [0.0, 1.0]
+    description: >
+      Review an AI-generated patch for privacy, governance, and operational
+      safety risks before it can be merged.
+  - id: review_ai_patch_correctness
+    name: "Task 4: Review AI Patch Correctness"
+    difficulty: medium
+    max_steps: 8
+    score_range: [0.0, 1.0]
+    description: >
+      Review an AI-generated patch for semantic correctness and compatibility
+      with published contracts.
+  - id: synthesize_reporting_asset
+    name: "Task 5: Synthesize Reporting Asset"
+    difficulty: hard
+    max_steps: 12
+    score_range: [0.0, 1.0]
+    description: >
+      Create reporting-facing views, contracts, and alerting artifacts that
+      are safe to operate in production.
+  - id: synthesize_data_product
+    name: "Task 6: Synthesize Data Product"
+    difficulty: hard
+    max_steps: 14
+    score_range: [0.0, 1.0]
+    description: >
+      Ship a production-grade workflow or mart by creating multiple artifacts,
+      validating them, and submitting a production-safe summary.
