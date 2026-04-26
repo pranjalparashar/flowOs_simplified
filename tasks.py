@@ -581,6 +581,38 @@ TASK_DEFINITIONS: dict[str, dict] = {
         "grader_family": "simulation",
         "scenario_ids": ["SIM-E002"],
     },
+    "simulate_stage0_sql_generate": {
+        "id": "simulate_stage0_sql_generate",
+        "name": "Task 10: Stage 0 SQL Generate",
+        "difficulty": "easy",
+        "max_steps": 4,
+        "score_range": [0.0, 1.0],
+        "description": "Write one tiny final report SQL view from a prebuilt table.",
+        "available_actions": [
+            "read_file",
+            "edit_file",
+            "submit_workspace",
+        ],
+        "submission_action": "submit_workspace",
+        "grader_family": "simulation",
+        "scenario_ids": ["SIM-S001"],
+    },
+    "simulate_stage0_sql_repair": {
+        "id": "simulate_stage0_sql_repair",
+        "name": "Task 11: Stage 0 SQL Repair",
+        "difficulty": "easy",
+        "max_steps": 4,
+        "score_range": [0.0, 1.0],
+        "description": "Fix one tiny alias bug in one final report SQL view.",
+        "available_actions": [
+            "read_file",
+            "edit_file",
+            "submit_workspace",
+        ],
+        "submission_action": "submit_workspace",
+        "grader_family": "simulation",
+        "scenario_ids": ["SIM-S002"],
+    },
 }
 
 ALL_TASKS = TASK_DEFINITIONS
@@ -2823,6 +2855,217 @@ from daily_signup_counts;
             ],
             expected_final_preview=[
                 {"signup_date": "2026-04-02", "signup_count": 2},
+            ],
+        ),
+        simulation_scenario(
+            scenario_id="SIM-S001",
+            developer_request=(
+                "Write `sql/report_view.sql`. It should create the view `daily_signup_report` "
+                "by selecting `signup_date` and `signup_count` from `daily_signup_counts`."
+            ),
+            workspace_summary=(
+                "This is a Stage 0 task. Only one file matters: `sql/report_view.sql`. "
+                "Everything else is already correct."
+            ),
+            source_csv_path="data/daily_signups.csv",
+            source_csv_content="""signup_id,signup_date,channel
+S001,2026-04-01,organic
+S002,2026-04-01,paid
+S003,2026-04-02,organic
+S004,2026-04-02,referral
+""",
+            raw_table="raw_daily_signups",
+            staged_view="staged_daily_signups",
+            build_table="daily_signup_counts",
+            final_view="daily_signup_report",
+            raw_asset="raw.daily_signups_csv",
+            final_asset="mart.daily_signup_report",
+            date_column="signup_date",
+            raw_schema_columns=[
+                ("signup_id", "string"),
+                ("signup_date", "date"),
+                ("channel", "string"),
+            ],
+            required_output_columns=[
+                "signup_date",
+                "signup_count",
+            ],
+            build_metric_groups=[
+                ["count(*) as signup_count", "count(*) signup_count"],
+            ],
+            report_terms=["daily_signup_report", "signup_date", "signup_count"],
+            correct_load_sql="""create or replace view staged_daily_signups as
+select
+  signup_id,
+  cast(signup_date as date) as signup_date,
+  channel
+from raw_daily_signups;
+""",
+            correct_build_sql="""create or replace table daily_signup_counts as
+select
+  signup_date,
+  count(*) as signup_count
+from staged_daily_signups
+group by 1;
+""",
+            correct_report_sql="""create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count
+from daily_signup_counts;
+""",
+            starter_files={
+                "pipelines/report_job.yaml": """name: daily_signup_report_job
+storage_path: mock_s3/staged/daily_signups.csv
+raw_table: raw_daily_signups
+load_sql: sql/load_raw.sql
+build_sql: sql/build_table.sql
+report_sql: sql/report_view.sql
+final_view: daily_signup_report
+""",
+                "sql/load_raw.sql": """create or replace view staged_daily_signups as
+select
+  signup_id,
+  cast(signup_date as date) as signup_date,
+  channel
+from raw_daily_signups;
+""",
+                "sql/build_table.sql": """create or replace table daily_signup_counts as
+select
+  signup_date,
+  count(*) as signup_count
+from staged_daily_signups
+group by 1;
+""",
+                "docs/runtime_contract.md": """# Runtime contract
+
+- Only `sql/report_view.sql` needs to be written.
+- Create a final view named `daily_signup_report`.
+- Select exactly these columns in this order:
+  - signup_date
+  - signup_count
+- Read from `daily_signup_counts`.
+""",
+            },
+            editable_targets_override=["sql/report_view.sql"],
+            available_validators_override=[],
+            investigation_targets_override=[("read_file", "docs/runtime_contract.md")],
+            expected_raw_preview=[
+                {"signup_id": "S001", "signup_date": "2026-04-01", "channel": "organic"},
+            ],
+            expected_derived_preview=[
+                {"signup_date": "2026-04-01", "signup_count": 2},
+            ],
+            expected_final_preview=[
+                {"signup_date": "2026-04-01", "signup_count": 2},
+            ],
+        ),
+        simulation_scenario(
+            scenario_id="SIM-S002",
+            developer_request=(
+                "Fix `sql/report_view.sql`. It should expose `signup_count`, not `signups`, "
+                "in the final view `daily_signup_report`."
+            ),
+            workspace_summary=(
+                "This is a Stage 0 repair task. Only one file matters: `sql/report_view.sql`. "
+                "Everything else is already correct."
+            ),
+            source_csv_path="data/daily_signups.csv",
+            source_csv_content="""signup_id,signup_date,channel
+S001,2026-04-01,organic
+S002,2026-04-01,paid
+S003,2026-04-02,organic
+S004,2026-04-02,referral
+""",
+            raw_table="raw_daily_signups",
+            staged_view="staged_daily_signups",
+            build_table="daily_signup_counts",
+            final_view="daily_signup_report",
+            raw_asset="raw.daily_signups_csv",
+            final_asset="mart.daily_signup_report",
+            date_column="signup_date",
+            raw_schema_columns=[
+                ("signup_id", "string"),
+                ("signup_date", "date"),
+                ("channel", "string"),
+            ],
+            required_output_columns=[
+                "signup_date",
+                "signup_count",
+            ],
+            build_metric_groups=[
+                ["count(*) as signup_count", "count(*) signup_count"],
+            ],
+            report_terms=["daily_signup_report", "signup_date", "signup_count"],
+            correct_load_sql="""create or replace view staged_daily_signups as
+select
+  signup_id,
+  cast(signup_date as date) as signup_date,
+  channel
+from raw_daily_signups;
+""",
+            correct_build_sql="""create or replace table daily_signup_counts as
+select
+  signup_date,
+  count(*) as signup_count
+from staged_daily_signups
+group by 1;
+""",
+            correct_report_sql="""create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count
+from daily_signup_counts;
+""",
+            starter_files={
+                "pipelines/report_job.yaml": """name: daily_signup_report_job
+storage_path: mock_s3/staged/daily_signups.csv
+raw_table: raw_daily_signups
+load_sql: sql/load_raw.sql
+build_sql: sql/build_table.sql
+report_sql: sql/report_view.sql
+final_view: daily_signup_report
+""",
+                "sql/load_raw.sql": """create or replace view staged_daily_signups as
+select
+  signup_id,
+  cast(signup_date as date) as signup_date,
+  channel
+from raw_daily_signups;
+""",
+                "sql/build_table.sql": """create or replace table daily_signup_counts as
+select
+  signup_date,
+  count(*) as signup_count
+from staged_daily_signups
+group by 1;
+""",
+                "sql/report_view.sql": """create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count as signups
+from daily_signup_counts;
+""",
+                "docs/runtime_contract.md": """# Runtime contract
+
+- Only `sql/report_view.sql` needs to be fixed.
+- The final view must expose:
+  - signup_date
+  - signup_count
+- Do not use the alias `signups`.
+""",
+            },
+            editable_targets_override=["sql/report_view.sql"],
+            available_validators_override=[],
+            investigation_targets_override=[("read_file", "docs/runtime_contract.md")],
+            expected_raw_preview=[
+                {"signup_id": "S001", "signup_date": "2026-04-01", "channel": "organic"},
+            ],
+            expected_derived_preview=[
+                {"signup_date": "2026-04-01", "signup_count": 2},
+            ],
+            expected_final_preview=[
+                {"signup_date": "2026-04-01", "signup_count": 2},
             ],
         ),
         simulation_scenario(
