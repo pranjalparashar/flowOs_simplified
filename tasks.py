@@ -176,11 +176,31 @@ def simulation_scenario(
     correct_build_sql: str,
     correct_report_sql: str,
     starter_files: dict[str, str] | None = None,
+    editable_targets_override: list[str] | None = None,
+    available_validators_override: list[str] | None = None,
+    investigation_targets_override: list[tuple[str, str]] | None = None,
     expected_raw_preview: list[dict[str, object]] | None = None,
     expected_derived_preview: list[dict[str, object]] | None = None,
     expected_final_preview: list[dict[str, object]] | None = None,
 ) -> dict:
     starter_files = starter_files or {}
+    editable_targets = editable_targets_override if editable_targets_override is not None else [
+        "pipelines/report_job.yaml",
+        "sql/load_raw.sql",
+        "sql/build_table.sql",
+        "sql/report_view.sql",
+    ]
+    available_validators = available_validators_override if available_validators_override is not None else [
+        "storage_stage_check",
+        "duckdb_load_check",
+        "report_view_check",
+        "output_schema_check",
+    ]
+    investigation_targets = investigation_targets_override if investigation_targets_override is not None else [
+        ("read_file", "docs/runtime_contract.md"),
+        ("read_file", source_csv_path),
+        ("inspect_schema", raw_asset),
+    ]
     template_text = "\n".join(
         [
             f"name: {final_view}_job",
@@ -246,19 +266,9 @@ def simulation_scenario(
         developer_request=developer_request,
         workspace_summary=workspace_summary,
         known_files=known_files,
-        editable_targets=[
-            "pipelines/report_job.yaml",
-            "sql/load_raw.sql",
-            "sql/build_table.sql",
-            "sql/report_view.sql",
-        ],
+        editable_targets=editable_targets,
         known_assets=[raw_asset, final_asset],
-        available_validators=[
-            "storage_stage_check",
-            "duckdb_load_check",
-            "report_view_check",
-            "output_schema_check",
-        ],
+        available_validators=available_validators,
         files=files,
         schema_registry={
             raw_asset: f"asset: {raw_asset}\ncolumns:\n{schema_yaml_columns}\n",
@@ -310,12 +320,7 @@ def simulation_scenario(
                     weight=1.2,
                 ),
             },
-            "validator_targets": [
-                "storage_stage_check",
-                "duckdb_load_check",
-                "report_view_check",
-                "output_schema_check",
-            ],
+            "validator_targets": list(available_validators),
             "solve_validator_targets": [
                 "storage_stage_check",
                 "duckdb_load_check",
@@ -327,11 +332,7 @@ def simulation_scenario(
                 [final_view],
                 *[[term] for term in report_terms],
             ],
-            "investigation_targets": [
-                ("read_file", "docs/runtime_contract.md"),
-                ("read_file", source_csv_path),
-                ("inspect_schema", raw_asset),
-            ],
+            "investigation_targets": investigation_targets,
         },
         validators={
             "storage_stage_check": {
@@ -550,15 +551,13 @@ TASK_DEFINITIONS: dict[str, dict] = {
         "id": "simulate_csv_report_curriculum_generate",
         "name": "Task 8: Easy CSV Workflow Generation",
         "difficulty": "easy",
-        "max_steps": 8,
+        "max_steps": 6,
         "score_range": [0.0, 1.0],
-        "description": "Create a tiny CSV-to-report workflow with a very small daily aggregation.",
+        "description": "Create one tiny final report SQL file for a daily signup count.",
         "available_actions": [
-            "search_workspace",
             "read_file",
             "inspect_schema",
             "edit_file",
-            "run_validator",
             "submit_workspace",
         ],
         "submission_action": "submit_workspace",
@@ -569,15 +568,13 @@ TASK_DEFINITIONS: dict[str, dict] = {
         "id": "simulate_csv_report_curriculum_repair",
         "name": "Task 9: Easy CSV Workflow Repair",
         "difficulty": "easy",
-        "max_steps": 8,
+        "max_steps": 6,
         "score_range": [0.0, 1.0],
-        "description": "Repair a tiny CSV workflow where one final-view bug prevents success.",
+        "description": "Repair one tiny final report SQL file with a single alias bug.",
         "available_actions": [
-            "search_workspace",
             "read_file",
             "inspect_schema",
             "edit_file",
-            "run_validator",
             "submit_workspace",
         ],
         "submission_action": "submit_workspace",
@@ -2638,12 +2635,12 @@ required_columns:
         simulation_scenario(
             scenario_id="SIM-E001",
             developer_request=(
-                "Create the simplest possible daily signup report from this CSV. "
-                "Stage the file, load it into DuckDB, and publish a final daily report view."
+                "Create the simplest possible daily signup report SQL. "
+                "Read the contract and source schema, then write only the final report view SQL."
             ),
             workspace_summary=(
-                "This is the easiest curriculum workspace. Build a tiny pipeline that only counts signups per day. "
-                "The same four workflow files exist, but the SQL should stay very small."
+                "This is the easiest curriculum workspace. The pipeline YAML, load SQL, and build SQL are already correct. "
+                "Only the final report view SQL is missing."
             ),
             source_csv_path="data/daily_signups.csv",
             source_csv_content="""signup_id,signup_date,channel
@@ -2692,6 +2689,32 @@ select
   signup_count
 from daily_signup_counts;
 """,
+            starter_files={
+                "pipelines/report_job.yaml": """name: daily_signup_report_job
+storage_path: mock_s3/staged/daily_signups.csv
+raw_table: raw_daily_signups
+load_sql: sql/load_raw.sql
+build_sql: sql/build_table.sql
+report_sql: sql/report_view.sql
+final_view: daily_signup_report
+""",
+                "sql/load_raw.sql": """create or replace view staged_daily_signups as
+select
+  signup_id,
+  cast(signup_date as date) as signup_date,
+  channel
+from raw_daily_signups;
+""",
+                "sql/build_table.sql": """create or replace table daily_signup_counts as
+select
+  signup_date,
+  count(*) as signup_count
+from staged_daily_signups
+group by 1;
+""",
+            },
+            editable_targets_override=["sql/report_view.sql"],
+            available_validators_override=[],
             expected_raw_preview=[
                 {"signup_id": "S001", "signup_date": "2026-04-01", "channel": "organic"},
                 {"signup_id": "S002", "signup_date": "2026-04-01", "channel": "paid"},
@@ -2706,12 +2729,11 @@ from daily_signup_counts;
         simulation_scenario(
             scenario_id="SIM-E002",
             developer_request=(
-                "Repair this tiny signup report workflow. The pipeline is almost correct, but the final report view "
-                "does not match the expected contract."
+                "Repair this tiny signup report SQL. The final report view is almost correct, but one alias is wrong."
             ),
             workspace_summary=(
-                "This is the easiest repair curriculum workspace. Almost everything is correct already; "
-                "Fixer only needs to repair the final view so the runtime and schema checks pass."
+                "This is the easiest repair curriculum workspace. The pipeline YAML, load SQL, and build SQL are already correct. "
+                "Only the final report view SQL needs a tiny fix."
             ),
             source_csv_path="data/daily_signups.csv",
             source_csv_content="""signup_id,signup_date,channel
@@ -2790,6 +2812,8 @@ select
 from daily_signup_counts;
 """,
             },
+            editable_targets_override=["sql/report_view.sql"],
+            available_validators_override=[],
             expected_raw_preview=[
                 {"signup_id": "S001", "signup_date": "2026-04-01", "channel": "organic"},
                 {"signup_id": "S002", "signup_date": "2026-04-01", "channel": "paid"},

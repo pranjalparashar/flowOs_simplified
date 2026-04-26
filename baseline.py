@@ -329,7 +329,12 @@ def action_is_valid(action: Optional[dict[str, Any]], observation: Any) -> bool:
         )
 
     if action_type == "submit_workspace":
-        return has_edit and bool(observation.validator_status) and bool(str(params.get("summary") or "").strip())
+        requires_validator_evidence = bool(observation.available_validators)
+        return (
+            has_edit
+            and (bool(observation.validator_status) or not requires_validator_evidence)
+            and bool(str(params.get("summary") or "").strip())
+        )
 
     if action_type == "submit_review":
         has_supporting_evidence = bool(read_paths) or bool(observation.validator_status)
@@ -1197,6 +1202,8 @@ from customer_summary;
         ]
 
         for path, content in simulation_edits:
+            if path not in set(observation.editable_targets):
+                continue
             if path not in edited:
                 return {"action_type": "edit_file", "parameters": {"path": path, "content": content}}
 
