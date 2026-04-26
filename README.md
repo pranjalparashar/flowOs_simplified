@@ -1,5 +1,5 @@
 ---
-title: FlowOs V2
+title: FlowOs V2 simplified
 emoji: 📚
 colorFrom: red
 colorTo: green
