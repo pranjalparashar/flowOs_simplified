@@ -413,12 +413,59 @@ def _grade_simulation_workflow(state: dict, scenario: dict) -> dict[str, Any]:
     }
 
 
+def _grade_stage00(state: dict, scenario: dict) -> dict[str, Any]:
+    target = scenario["stage00_target"]
+    read_targets = {( "read_file", _norm(path)) for path in target.get("required_read_paths", [])}
+    read_raw = _investigation_score(state, read_targets)
+
+    target_path = target.get("target_path", "")
+    files = _workspace_files(state, scenario)
+    edited_text = files.get(target_path, "") if target_path else ""
+
+    if "required_exact_text" in target:
+        edit_raw = 1.0 if edited_text.strip() == str(target.get("required_exact_text", "")).strip() else 0.0
+    elif target_path:
+        edit_raw = _groups_score(edited_text, target.get("required_groups", []), target.get("forbidden_terms", []))
+    else:
+        edit_raw = 1.0
+
+    summary_raw = _summary_score(
+        state.get("submission", {}).get("summary", ""),
+        target.get("required_summary_groups", []),
+    )
+
+    read_score = 0.4 * read_raw
+    edit_score = 0.4 * edit_raw
+    summary_score = 0.2 * summary_raw
+
+    solved = (
+        state.get("submitted", False)
+        and read_raw == 1.0
+        and edit_raw == 1.0
+        and summary_raw >= (1.0 if len(target.get("required_summary_groups", [])) <= 1 else 0.5)
+    )
+    total = _strict_score(read_score + edit_score + summary_score)
+    return {
+        "total": total,
+        "solved": solved,
+        "breakdown": {
+            "read_score": round(read_score, 4),
+            "edit_score": round(edit_score, 4),
+            "summary_score": round(summary_score, 4),
+        },
+        "feedback": (
+            f"read={read_score:.2f} edit={edit_score:.2f} summary={summary_score:.2f}"
+        ),
+    }
+
+
 def grade(task_id: str, state: dict, scenario: dict) -> dict[str, Any]:
     graders = {
         "repair": _grade_pipeline_repair,
         "review": _grade_llm_patch_review,
         "workflow": _grade_workflow_shipping,
         "simulation": _grade_simulation_workflow,
+        "stage00": _grade_stage00,
     }
     try:
         grader_family = get_grader_family(task_id)

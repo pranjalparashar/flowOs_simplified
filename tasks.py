@@ -154,6 +154,32 @@ def workflow_scenario(
     }
 
 
+def stage00_scenario(
+    scenario_id: str,
+    developer_request: str,
+    workspace_summary: str,
+    known_files: list[str],
+    editable_targets: list[str],
+    files: dict[str, str],
+    stage00_target: dict,
+) -> dict:
+    return {
+        "scenario_id": scenario_id,
+        "developer_request": developer_request,
+        "workspace_summary": workspace_summary,
+        "known_files": known_files,
+        "editable_targets": editable_targets,
+        "known_assets": [],
+        "available_validators": [],
+        "files": files,
+        "schema_registry": {},
+        "lineage": {},
+        "llm_draft": {},
+        "validators": {},
+        "stage00_target": stage00_target,
+    }
+
+
 def simulation_scenario(
     *,
     scenario_id: str,
@@ -612,6 +638,53 @@ TASK_DEFINITIONS: dict[str, dict] = {
         "submission_action": "submit_workspace",
         "grader_family": "simulation",
         "scenario_ids": ["SIM-S002"],
+    },
+    "simulate_stage00_read_submit": {
+        "id": "simulate_stage00_read_submit",
+        "name": "Task 12: Stage 00 Read Submit",
+        "difficulty": "easy",
+        "max_steps": 2,
+        "score_range": [0.0, 1.0],
+        "description": "Read one file and submit one short grounded summary.",
+        "available_actions": [
+            "read_file",
+            "submit_workspace",
+        ],
+        "submission_action": "submit_workspace",
+        "grader_family": "stage00",
+        "scenario_ids": ["SIM-SR001"],
+    },
+    "simulate_stage00_copy_edit": {
+        "id": "simulate_stage00_copy_edit",
+        "name": "Task 13: Stage 00 Copy Edit",
+        "difficulty": "easy",
+        "max_steps": 3,
+        "score_range": [0.0, 1.0],
+        "description": "Read one template, copy it into one target file, then submit.",
+        "available_actions": [
+            "read_file",
+            "edit_file",
+            "submit_workspace",
+        ],
+        "submission_action": "submit_workspace",
+        "grader_family": "stage00",
+        "scenario_ids": ["SIM-SR002"],
+    },
+    "simulate_stage00_fix_alias": {
+        "id": "simulate_stage00_fix_alias",
+        "name": "Task 14: Stage 00 Fix Alias",
+        "difficulty": "easy",
+        "max_steps": 3,
+        "score_range": [0.0, 1.0],
+        "description": "Fix one obvious alias in one short SQL file, then submit.",
+        "available_actions": [
+            "read_file",
+            "edit_file",
+            "submit_workspace",
+        ],
+        "submission_action": "submit_workspace",
+        "grader_family": "stage00",
+        "scenario_ids": ["SIM-SR003"],
     },
 }
 
@@ -3771,6 +3844,87 @@ from returns_daily_summary;
             expected_final_preview=[
                 {"return_reason": "wrong_item", "return_date": "2026-04-11", "refund_total_usd": 30.0},
             ],
+        ),
+    ],
+    "stage00_actions": [
+        stage00_scenario(
+            scenario_id="SIM-SR001",
+            developer_request=(
+                "Read `docs/goal.txt`, then submit a short summary that includes the exact phrase "
+                "`daily_signup_report`."
+            ),
+            workspace_summary=(
+                "This is a Stage 00 action task. Do not edit files. Read one file, then submit a short summary."
+            ),
+            known_files=["docs/goal.txt"],
+            editable_targets=[],
+            files={
+                "docs/goal.txt": """Goal: publish the final view named daily_signup_report.""",
+            },
+            stage00_target={
+                "required_read_paths": ["docs/goal.txt"],
+                "required_summary_groups": [["daily_signup_report"]],
+            },
+        ),
+        stage00_scenario(
+            scenario_id="SIM-SR002",
+            developer_request=(
+                "Read `templates/report_view.sql`, copy it exactly into `sql/report_view.sql`, then submit."
+            ),
+            workspace_summary=(
+                "This is a Stage 00 action task. Only one edit matters: copy the template exactly."
+            ),
+            known_files=[
+                "templates/report_view.sql",
+                "sql/report_view.sql",
+            ],
+            editable_targets=["sql/report_view.sql"],
+            files={
+                "templates/report_view.sql": """create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count
+from daily_signup_counts;
+""",
+                "sql/report_view.sql": "",
+            },
+            stage00_target={
+                "required_read_paths": ["templates/report_view.sql"],
+                "target_path": "sql/report_view.sql",
+                "required_exact_text": """create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count
+from daily_signup_counts;
+""",
+                "required_summary_groups": [["copied"], ["daily_signup_report"]],
+            },
+        ),
+        stage00_scenario(
+            scenario_id="SIM-SR003",
+            developer_request=(
+                "Fix `sql/report_view.sql`. Replace the wrong alias `signups` with `signup_count`, then submit."
+            ),
+            workspace_summary=(
+                "This is a Stage 00 action task. Only one tiny edit matters in one file."
+            ),
+            known_files=["sql/report_view.sql"],
+            editable_targets=["sql/report_view.sql"],
+            files={
+                "sql/report_view.sql": """create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count as signups
+from daily_signup_counts;
+""",
+            },
+            stage00_target={
+                "required_read_paths": ["sql/report_view.sql"],
+                "target_path": "sql/report_view.sql",
+                "required_groups": [["signup_count"], ["daily_signup_counts"]],
+                "forbidden_terms": ["signups"],
+                "required_summary_groups": [["signup_count"], ["fixed", "repair"]],
+            },
         ),
     ],
 }

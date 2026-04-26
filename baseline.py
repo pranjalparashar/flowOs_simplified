@@ -330,8 +330,9 @@ def action_is_valid(action: Optional[dict[str, Any]], observation: Any) -> bool:
 
     if action_type == "submit_workspace":
         requires_validator_evidence = bool(observation.available_validators)
+        requires_edit = bool(observation.editable_targets)
         return (
-            has_edit
+            (has_edit or not requires_edit)
             and (bool(observation.validator_status) or not requires_validator_evidence)
             and bool(str(params.get("summary") or "").strip())
         )
@@ -1218,6 +1219,50 @@ from customer_summary;
                     f"Built a DuckDB pipeline from {os.path.basename(source_csv)} and published {final_view_name}."
                 )
             },
+        }
+
+    if grader_family == "stage00":
+        stage00_specs = {
+            "SIM-SR001": {
+                "read_paths": ["docs/goal.txt"],
+                "submission": "daily_signup_report",
+            },
+            "SIM-SR002": {
+                "read_paths": ["templates/report_view.sql"],
+                "edit_path": "sql/report_view.sql",
+                "edit_content": """create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count
+from daily_signup_counts;
+""",
+                "submission": "Copied daily_signup_report template.",
+            },
+            "SIM-SR003": {
+                "read_paths": ["sql/report_view.sql"],
+                "edit_path": "sql/report_view.sql",
+                "edit_content": """create or replace view daily_signup_report as
+select
+  signup_date,
+  signup_count
+from daily_signup_counts;
+""",
+                "submission": "Fixed signup_count alias in daily_signup_report.",
+            },
+        }
+        spec = stage00_specs.get(scenario_id, stage00_specs["SIM-SR001"])
+        for path in spec.get("read_paths", []):
+            if path not in queried.get("read_file", {}):
+                return {"action_type": "read_file", "parameters": {"path": path}}
+        edit_path = spec.get("edit_path")
+        if edit_path and observation.edited_files.get(edit_path, "") != spec.get("edit_content", ""):
+            return {
+                "action_type": "edit_file",
+                "parameters": {"path": edit_path, "content": spec.get("edit_content", "")},
+            }
+        return {
+            "action_type": "submit_workspace",
+            "parameters": {"summary": spec["submission"]},
         }
 
     return {"action_type": "search_workspace", "parameters": {"query": observation.developer_request}}
